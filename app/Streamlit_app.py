@@ -1,20 +1,42 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import matplotlib.pyplot as plt
 
-# ---- Load trained model ----
-MODEL_PATH = "../models/logreg_promotion_pipeline.pkl"
+# ---- Load model & results ----
+MODEL_PATH = "../models/best_model.pkl"
+COMPARISON_PATH = "../models/model_comparison.csv"
+
 model = joblib.load(MODEL_PATH)
+comparison_df = pd.read_csv(COMPARISON_PATH)
 
-# ---- Page Title ----
+# ---- Title & Description ----
 st.title("🏆 Employee Promotion Prediction System")
 st.markdown(
-    "This demo uses a machine-learning model trained on historical HR data "
-    "to estimate the likelihood of an employee being promoted in the next cycle."
+    "This app compares five machine learning algorithms — "
+    "**KNN, Logistic Regression, Naive Bayes, Decision Tree, and SVM** — "
+    "and automatically uses the model with the highest accuracy "
+    "for predicting whether an employee is likely to be promoted."
 )
-st.info("Fill in the details below and click **Predict Promotion** to see the result.")
 
-# ---- Input fields ----
+# ---- Display Comparison Table ----
+st.subheader("📊 Model Accuracy Comparison")
+st.dataframe(comparison_df.style.format({
+    "Accuracy": "{:.2%}", "Balanced Accuracy": "{:.2%}", "ROC-AUC": "{:.2f}"
+}))
+
+# ---- Accuracy Bar Chart ----
+st.subheader("🔍 Accuracy Visualization")
+fig, ax = plt.subplots()
+ax.bar(comparison_df["Model"], comparison_df["Accuracy"], color="skyblue")
+ax.set_ylabel("Accuracy")
+ax.set_ylim(0, 1)
+ax.set_title("Model Accuracy Comparison")
+st.pyplot(fig)
+
+st.divider()
+
+# ---- Input Section ----
 st.header("📝 Employee Details")
 
 department = st.selectbox("Department", [
@@ -32,12 +54,11 @@ no_of_trainings = st.number_input("Number of Trainings", min_value=0, max_value=
 age = st.number_input("Age", min_value=18, max_value=60, value=30)
 previous_year_rating = st.number_input("Previous Year Rating (1-5)", min_value=1.0, max_value=5.0, value=3.0)
 length_of_service = st.number_input("Length of Service (years)", min_value=0, max_value=40, value=5, step=1)
-awards_won = st.selectbox("Awards Won?", [0, 1])
+awards_won = st.selectbox("Awards Won?", [0, 1, 2, 3, 4, 5])
 avg_training_score = st.number_input("Average Training Score", min_value=0, max_value=100, value=60)
 
-# ---- Predict Button ----
+# ---- Prediction ----
 if st.button("Predict Promotion"):
-    # Build dataframe for input
     input_df = pd.DataFrame([{
         "department": department,
         "region": region,
@@ -52,11 +73,10 @@ if st.button("Predict Promotion"):
         "avg_training_score": avg_training_score
     }])
 
-    # Predict
     pred = model.predict(input_df)[0]
-    prob = model.predict_proba(input_df)[0][1]
+    prob = model.predict_proba(input_df)[0][1] if hasattr(model, "predict_proba") else 0
 
-    # Display result
+    st.subheader("🎯 Prediction Result")
     if pred == 1:
         st.success(f"✅ This employee is **likely to be promoted** (probability: {prob:.2%})")
     else:
